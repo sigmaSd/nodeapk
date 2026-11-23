@@ -27,7 +27,9 @@ object ReadyLine {
 
 class NodeProcess(
   private val node: File,
+  private val nodeArgs: List<String>,
   private val entry: File,
+  private val cwd: File,
   private val env: Map<String, String>,
   private val onReady: (url: String) -> Unit,
   private val onExit: (code: Int, output: String) -> Unit,
@@ -37,7 +39,7 @@ class NodeProcess(
   @Volatile private var stopping = false
 
   fun start() {
-    val builder = ProcessBuilder(node.path, entry.path).directory(entry.parentFile)
+    val builder = ProcessBuilder(listOf(node.path) + nodeArgs + entry.path).directory(cwd)
     builder.environment().putAll(env)
     val p = builder.start()
     process = p

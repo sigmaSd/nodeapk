@@ -3,14 +3,56 @@
 Package a Node app that serves its own UI as an Android APK: Node runs on the phone as a separate process,
 and a WebView shows its local server ("Electron for Android", minus Electron).
 
-This is **milestone 1**: de-risking before the `npx nodeapk build .` CLI. It has Node 24 built for Android,
+Milestone 1 (de-risking) is done, and a first `nodeapk build` CLI builds any app with a `nodeapk` block,
+Tandem included. It has Node 24 built for Android,
 a Kotlin shell, a script building a demo APK, and probe results from a real device. Nothing is published to
 npm; Node for Android is published by [node-android](https://github.com/sigmaSd/node-android).
+
+## Use
+
+In the app's package.json:
+
+```jsonc
+"nodeapk": {
+  "id": "dev.example.app",             // Android package name (required)
+  "name": "Example",                   // launcher name (default: productName, then name)
+  "icon": "app/icon.png",              // a PNG (default: nodeapk's)
+  "entry": "dist/android.mjs",         // the file Node runs
+  "files": ["app/ui/dist"],            // shipped too, at the same paths relative to the project
+  "permissions": ["multicast", "all-files"]   // optional
+}
+```
+
+```bash
+node ~/dev/nodeapk/src/cli.ts build [dir] [--install] [--serial <device>] [--out <file.apk>] [--runtime <node-android archive>]
+```
+
+The APK goes to `<dir>/dist/<id>.apk`. Not on npm yet (`npx nodeapk` needs a bundled CLI first).
+
+**The app contract**: listen on 127.0.0.1 (any port), print one line `nodeapk: http://127.0.0.1:PORT/…` on
+stdout once ready (a path and query may follow: Tandem passes its secret), keep data in `NODEAPK_DATA` and
+caches in `NODEAPK_CACHE`, no native `.node` addons (the build refuses them). Everything shipped keeps its
+project-relative path, so an entry that finds its files with `import.meta.dirname` finds them on the phone.
+
+The shell also sets `HOME`, `TMPDIR`, `NODEAPK_VERSION` (the app's version), `NODEAPK_PACKAGE`, `LANG` (the
+phone's language, which `Intl` follows) and `NODEAPK_DNS` (the network's DNS servers, applied with
+`dns.setServers()` by a preload so that `dns.resolve*()` works). Permissions:
+
+- `multicast`: the shell holds a Wi-Fi multicast lock while the app is open (broadcast and multicast
+  discovery).
+- `all-files`: the shell opens Android's "All files access" page on first start, so the app can use
+  `/storage/emulated/0/…`.
 
 ## Results (2026-11-23)
 
 **The model works.** On a Xiaomi 2409BRN2CA (Android 16, arm64), the demo APK starts Node 24.22.3 from the
-native library folder, Node prints its ready line, the WebView shows the page, and 16 of 17 probes pass.
+native library folder, Node prints its ready line, the WebView shows the page, and all 17 probes pass
+(`dns.resolve4` since the shell passes the DNS servers).
+
+**Tandem runs too**: `nodeapk build ~/dev/tandem` (an Android entry in its `shell/android/main.ts`), window
+up in 1.6 s, All files access granted from the page the shell opens. Not yet tried: an actual sync with a
+desktop. On Android its folder dialog does nothing (type the path), and a relative path lands in the app's
+private folder.
 
 | Probe | Result |
 | --- | --- |
@@ -22,7 +64,7 @@ native library folder, Node prints its ready line, the WebView shows the page, a
 | `node:dgram` broadcast | ✓ sent to 255.255.255.255 and the subnet broadcast, received back (no multicast lock needed for this) |
 | `fs.watch` | ✓ events within the app's folders |
 | `dns.lookup` | ✓ (the system resolver) |
-| `dns.resolve4` (c-ares) | ✗ `ECONNREFUSED`: c-ares finds no DNS servers on Android (no `/etc/resolv.conf`) and tries 127.0.0.1 |
+| `dns.resolve4` (c-ares) | ✓ once the shell passes the network's DNS servers; without them `ECONNREFUSED` (no `/etc/resolv.conf`, so c-ares tries 127.0.0.1) |
 | `fetch` over HTTPS | ✓ (Node's bundled CA certificates) |
 | `child_process` | ✓ `/system/bin/sh` runs, as the app's uid |
 | `worker_threads` | ✓ |
@@ -52,11 +94,12 @@ What this means for the design:
 - **Timeouts can't count wall time.** The shell first treated "no ready line within 30 s" as fatal; the timer
   ran out during a freeze and the page never loaded. It now only shows a note, and a late ready line still
   loads the page.
-- **`dns.resolve*()` needs servers.** Apps should use `dns.lookup` (what `http`, `fetch` and `net` use). A
-  later shell could pass the network's DNS servers (`LinkProperties.getDnsServers()`) for `dns.setServers()`.
+- **`dns.resolve*()` needs servers**: c-ares has none on Android. The shell now passes the network's
+  (`LinkProperties.getDnsServers()`) and a preload applies them; they're read once, at start.
 - **Startup**: a bundled `.js` entry avoids the type-stripping cost; a startup snapshot (generated on a
   device or under emulation) would cut the rest, a node-android improvement.
-- Not tested yet: x64 (the emulator segfaults on this machine), `node:dgram` multicast, "All files access".
+- Not tested yet: x64 (the emulator segfaults on this machine), `node:dgram` multicast, a non-English
+  phone (`LANG` → `Intl`).
 
 ## How it works
 
@@ -64,7 +107,8 @@ What this means for the design:
 APK
 ├── classes.dex               the Kotlin shell (shell/kotlin/), ~30 KB after R8
 ├── lib/arm64-v8a/libnode.so  Node 24, a normal PIE executable named like a library
-├── assets/app/               the app's files + .entry (the file Node runs)
+├── assets/app/               the app's entry and files, at their project paths
+├── assets/nodeapk.json       the entry and the shell's options (multicast lock, all files)
 └── res/, AndroidManifest.xml
 ```
 
@@ -72,8 +116,8 @@ APK
    The package manager only extracts `lib*.so` files there, and only with `android:extractNativeLibs="true"`.
    So Node ships as `lib/<abi>/libnode.so` and runs from `applicationInfo.nativeLibraryDir`.
 2. On start, the shell copies `assets/app/` to `files/app/` (once per APK install or update) and starts
-   `libnode.so files/app/<entry>` with `HOME`, `TMPDIR`, `NODEAPK_DATA` (`files/data`), `NODEAPK_CACHE`
-   (`cache/node`) and `NODEAPK_PACKAGE` set.
+   `libnode.so --import <preload> files/app/<entry>` in `files/app/`, with the environment described in
+   Use (`NODEAPK_DATA` is `files/data`, `NODEAPK_CACHE` is `cache/node`).
 3. The app listens on 127.0.0.1 and prints `nodeapk: http://127.0.0.1:PORT/`. The shell loads that URL in a
    WebView. Cleartext HTTP is allowed to 127.0.0.1 only (`res/xml/network_security_config.xml`).
 4. If Node exits, the WebView is replaced by the exit code and the last 60 lines Node printed (a slow start
@@ -84,10 +128,10 @@ APK
 
 ```
 shell/                      the Kotlin shell: AndroidManifest.xml (template), kotlin/, res/, r8.pro
+src/cli.ts, build.ts         `nodeapk build`; config.ts reads the package.json block
 src/android/                SDK bootstrap, kotlinc + R8 → dex (cached), Node from node-android (cached),
                             aapt2 + zip + zipalign + apksigner
-tools/build-demo.ts         builds the demo APK
-demo/                       the demo app: server.ts (the contract) and probes.ts
+demo/                       the demo app (its own package.json): server.ts and probes.ts
 ```
 
 ## Node for Android
@@ -101,9 +145,9 @@ downloads the pinned release (`src/android/runtime.ts`) and checks its SHA-256.
 The demo APK (downloads the SDK build tools, kotlinc and Node into `~/.cache/nodeapk` on first use):
 
 ```bash
-node tools/build-demo.ts            # → dist/nodeapk-demo.apk
-node tools/build-demo.ts --install  # and adb install + start it
-node tools/build-demo.ts --runtime ../node-android/out/node-v24.22.3-android-arm64.tar.xz   # a local build
+node src/cli.ts build demo            # → demo/dist/dev.nodeapk.demo.apk
+node src/cli.ts build demo --install  # and adb install + start it
+node src/cli.ts build demo --runtime ../node-android/out/node-v24.22.3-android-arm64.tar.xz   # a local Node build
 ```
 
 Needs Node 24, a JDK (17+; tested with 25), `zip` and `unzip`.

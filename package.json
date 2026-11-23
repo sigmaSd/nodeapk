@@ -4,10 +4,13 @@
   "private": true,
   "description": "Package a Node app that serves its own UI as an Android APK",
   "license": "MIT",
+  "bin": {
+    "nodeapk": "./src/cli.ts"
+  },
   "type": "module",
   "scripts": {
-    "demo": "node tools/build-demo.ts",
-    "demo:install": "node tools/build-demo.ts --install"
+    "demo": "node src/cli.ts build demo",
+    "demo:install": "node src/cli.ts build demo --install"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

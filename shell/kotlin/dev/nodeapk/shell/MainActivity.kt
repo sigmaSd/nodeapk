@@ -1,7 +1,8 @@
 // The nodeapk shell: one activity that starts the app's Node server and shows it in a WebView.
 //
 // Flow: copy the app's files from the APK's assets/app/ to files/app/ (Node can't read inside the APK;
-// copied again only when the APK changes), start Node on assets/app/<entry> (NodeProcess), wait for its
+// copied again only when the APK changes), start Node on the entry named in assets/nodeapk.json
+// (NodeProcess; environment and options from Platform), wait for its
 // ready line, load the announced http://127.0.0.1:PORT/ URL. If Node exits, the WebView is replaced by
 // the error and the last lines Node printed. Node is stopped with the activity.
 //
@@ -40,6 +41,7 @@ class MainActivity : Activity() {
   private lateinit var status: TextView
   private lateinit var statusScroll: ScrollView
   private var node: NodeProcess? = null
+  private var multicast: android.net.wifi.WifiManager.MulticastLock? = null
   private val main = Handler(Looper.getMainLooper())
   private var loaded = false // the page is shown
   private var exited = false // Node is gone: its error stays on screen
@@ -49,7 +51,10 @@ class MainActivity : Activity() {
     super.onCreate(savedInstanceState)
     buildViews()
     startedAt = System.nanoTime()
-    Thread({ startNode() }, "node-start").start()
+    val options = AppOptions.read(this)
+    if (options.multicastLock) multicast = Platform.multicastLock(this)
+    if (options.allFiles) Platform.askAllFiles(this)
+    Thread({ startNode(options) }, "node-start").start()
     main.postDelayed({
       if (!loaded && !exited && !isFinishing) {
         status.text = "Still waiting for Node's ready line after $READY_TIMEOUT_S s…"
@@ -59,6 +64,7 @@ class MainActivity : Activity() {
 
   override fun onDestroy() {
     node?.stop()
+    multicast?.release()
     webView.destroy()
     super.onDestroy()
   }
@@ -69,10 +75,10 @@ class MainActivity : Activity() {
     else @Suppress("DEPRECATION") super.onBackPressed()
   }
 
-  private fun startNode() {
+  private fun startNode(options: AppOptions) {
     try {
       val app = extractApp()
-      val entry = File(app, assets.open("app/.entry").bufferedReader().readText().trim())
+      val entry = File(app, options.entry)
       val data = File(filesDir, "data").apply { mkdirs() }
       val cache = File(cacheDir, "node").apply { mkdirs() }
       val tmp = File(cacheDir, "tmp").apply { mkdirs() }
@@ -82,10 +88,14 @@ class MainActivity : Activity() {
         "NODEAPK_DATA" to data.path,
         "NODEAPK_CACHE" to cache.path,
         "NODEAPK_PACKAGE" to packageName,
+        "NODEAPK_VERSION" to (packageManager.getPackageInfo(packageName, 0).versionName ?: ""),
+        "NODEAPK_DNS" to Platform.dnsServers(this),
+        "LANG" to Platform.lang(),
       )
+      val preload = Platform.preload(this)
       val nodeBin = File(applicationInfo.nativeLibraryDir, "libnode.so")
       node = NodeProcess(
-        nodeBin, entry, env,
+        nodeBin, listOf("--import", preload.toURI().toString()), entry, app, env,
         onReady = { url -> main.post { onReady(url) } },
         onExit = { code, output -> main.post { exited = true; showError("Node exited with code $code.", output) } },
       ).also { it.start() }
