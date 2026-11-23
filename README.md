@@ -42,6 +42,9 @@ phone's language, which `Intl` follows) and `NODEAPK_DNS` (the network's DNS ser
   discovery).
 - `all-files`: the shell opens Android's "All files access" page on first start, so the app can use
   `/storage/emulated/0/…`.
+- `camera`: the page may use the camera (`getUserMedia`); Android asks the user the first time. The WebView
+  also has `BarcodeDetector` with `qr_code` (seen on Android 16), so reading QR codes needs no library:
+  Tandem pairs this way.
 
 **Asking the shell**: the preload also defines `globalThis.nodeapk` (a request line on stdout, the answer on
 Node's stdin):
@@ -58,7 +61,8 @@ native library folder, Node prints its ready line, the WebView shows the page, a
 
 **Tandem runs too**: `nodeapk build ~/dev/tandem` (an Android entry in its `shell/android/main.ts`), window
 up in 1.6 s, All files access granted from the page the shell opens. "Browse…" opens Android's folder picker
-(`nodeapk.pickFolder()`). Not yet tried: an actual sync with a desktop.
+(`nodeapk.pickFolder()`), and the phone paired with the desktop by scanning the QR code it shows. Not yet
+tried: an actual sync.
 
 | Probe | Result |
 | --- | --- |

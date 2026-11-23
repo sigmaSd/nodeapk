@@ -19,11 +19,13 @@ import java.io.File
 import java.util.Locale
 
 /** assets/nodeapk.json. */
-class AppOptions(val entry: String, val multicastLock: Boolean, val allFiles: Boolean) {
+class AppOptions(val entry: String, val multicastLock: Boolean, val allFiles: Boolean, val camera: Boolean) {
   companion object {
     fun read(context: Context): AppOptions {
       val json = JSONObject(context.assets.open("nodeapk.json").bufferedReader().readText())
-      return AppOptions(json.getString("entry"), json.optBoolean("multicastLock"), json.optBoolean("allFiles"))
+      return AppOptions(
+        json.getString("entry"), json.optBoolean("multicastLock"), json.optBoolean("allFiles"), json.optBoolean("camera"),
+      )
     }
   }
 }

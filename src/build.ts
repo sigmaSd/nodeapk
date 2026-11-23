@@ -68,6 +68,7 @@ export async function build(app: AppConfig, opts: BuildOptions = {}): Promise<st
         entry: app.entry,
         multicastLock: app.permissions.includes("multicast"),
         allFiles: app.permissions.includes("all-files"),
+        camera: app.permissions.includes("camera"),
       },
       permissions: app.permissions.flatMap((p) => PERMISSIONS[p]),
       icon: app.icon,

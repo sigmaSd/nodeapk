@@ -40,6 +40,9 @@ const page = `<!doctype html>
     const failed = results.filter((r) => !r.ok).length;
     summary.textContent = (results.length - failed) + " of " + results.length + " probes passed";
     console.log("probes: " + JSON.stringify(results));
+    // what the WebView offers the page (logged to logcat by the shell)
+    const formats = "BarcodeDetector" in window ? await BarcodeDetector.getSupportedFormats() : "none";
+    console.log("webview: BarcodeDetector " + JSON.stringify(formats) + ", mediaDevices " + !!navigator.mediaDevices + ", secure " + isSecureContext);
   }
   document.getElementById("again").onclick = run;
   run();

@@ -14,7 +14,9 @@
 // Cleartext HTTP is allowed to 127.0.0.1 only (res/xml/network_security_config.xml).
 package dev.nodeapk.shell
 
+import android.Manifest
 import android.app.Activity
+import android.content.pm.PackageManager
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
@@ -27,6 +29,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
 import android.webkit.ConsoleMessage
+import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -43,6 +46,8 @@ class MainActivity : Activity() {
   private var node: NodeProcess? = null
   private var multicast: android.net.wifi.WifiManager.MulticastLock? = null
   private var pendingPick: Long? = null // the pickFolder call waiting for the picker
+  private var camera = false // the app declared the camera permission
+  private var pendingCamera: PermissionRequest? = null // the page's getUserMedia waiting for Android's answer
   private val main = Handler(Looper.getMainLooper())
   private var loaded = false // the page is shown
   private var exited = false // Node is gone: its error stays on screen
@@ -53,6 +58,7 @@ class MainActivity : Activity() {
     buildViews()
     startedAt = System.nanoTime()
     val options = AppOptions.read(this)
+    camera = options.camera
     if (options.multicastLock) multicast = Platform.multicastLock(this)
     if (options.allFiles) Platform.askAllFiles(this)
     Thread({ startNode(options) }, "node-start").start()
@@ -125,6 +131,17 @@ class MainActivity : Activity() {
     }
   }
 
+  override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+    if (requestCode != CAMERA) return
+    val request = pendingCamera ?: return
+    pendingCamera = null
+    if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+      request.grant(arrayOf(PermissionRequest.RESOURCE_VIDEO_CAPTURE))
+    } else {
+      request.deny()
+    }
+  }
+
   @Deprecated("Still the simplest way without AndroidX")
   override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
     if (requestCode != PICK_FOLDER) {
@@ -188,6 +205,8 @@ class MainActivity : Activity() {
       settings.domStorageEnabled = true
       settings.allowFileAccess = false
       settings.allowContentAccess = false
+      // the app's own page: its media (a camera preview started after getUserMedia, say) may play on its own
+      settings.mediaPlaybackRequiresUserGesture = false
       webViewClient = object : WebViewClient() {
         // The app's own pages stay here; any other link opens in the browser
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -202,6 +221,18 @@ class MainActivity : Activity() {
       }
       // WebView doesn't forward the page's console anywhere by default
       webChromeClient = object : WebChromeClient() {
+        // the page's getUserMedia: the camera only, for an app that declared it, once Android has granted it
+        override fun onPermissionRequest(request: PermissionRequest) {
+          if (!camera || PermissionRequest.RESOURCE_VIDEO_CAPTURE !in request.resources) return request.deny()
+          val video = arrayOf(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+          if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            return request.grant(video)
+          }
+          pendingCamera?.deny()
+          pendingCamera = request
+          requestPermissions(arrayOf(Manifest.permission.CAMERA), CAMERA)
+        }
+
         override fun onConsoleMessage(m: ConsoleMessage): Boolean {
           Log.i(NodeProcess.TAG, "[console] ${m.sourceId()}:${m.lineNumber()} ${m.message()}")
           return true
@@ -235,6 +266,7 @@ class MainActivity : Activity() {
   companion object {
     private const val READY_TIMEOUT_S = 30
     private const val PICK_FOLDER = 2
+    private const val CAMERA = 3
   }
 }
 

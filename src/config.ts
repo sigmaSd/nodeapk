@@ -6,7 +6,7 @@
 //     "icon": "app/icon.png",            launcher icon, a PNG (default: nodeapk's)
 //     "entry": "dist/android.mjs",       the file Node runs, ideally one bundled file
 //     "files": ["app/ui/dist"],          shipped too, at the same paths relative to the project
-//     "permissions": ["multicast"]       optional: "multicast", "all-files"
+//     "permissions": ["multicast"]       optional: "multicast", "all-files", "camera"
 //   }
 //
 // Everything is shipped at its path relative to the project, so an entry that finds its files with
@@ -24,6 +24,11 @@ export const PERMISSIONS = {
   "all-files": [
     '<uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />',
     '<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />',
+  ],
+  // the page may use the camera (getUserMedia): Android asks the user the first time the page wants it
+  camera: [
+    '<uses-permission android:name="android.permission.CAMERA" />',
+    '<uses-feature android:name="android.hardware.camera.any" android:required="false" />',
   ],
 } as const;
 export type Permission = keyof typeof PERMISSIONS;
