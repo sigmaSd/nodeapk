@@ -4,8 +4,11 @@ Package a Node app that serves its own UI as an Android APK: Node runs on the ph
 and a WebView shows its local server ("Electron for Android", minus Electron).
 
 ```bash
-npx nodeapk build ~/my-app --install
+npx @sigmasd/nodeapk build ~/my-app --install
 ```
+
+Or install it once (`npm install -g @sigmasd/nodeapk`) and run `nodeapk build`. (npm refused the plain name
+`nodeapk` as too close to an existing `node-apk`.)
 
 Node for Android itself comes from [node-android](https://github.com/sigmaSd/node-android), which builds every
 Node 24 release. Milestone 1 (proving the model on a real phone) is done: the results are below. Tandem is
@@ -27,7 +30,7 @@ In the app's package.json:
 ```
 
 ```bash
-npx nodeapk build [dir] [--install] [--serial <device>] [--out <file.apk>] [--runtime <node-android archive>]
+npx @sigmasd/nodeapk build [dir] [--install] [--serial <device>] [--out <file.apk>] [--runtime <node-android archive>]
 ```
 
 The APK goes to `<dir>/dist/<id>.apk`. Needs Node 24.11+, a JDK (17+), `zip`, `unzip` and `tar`, and `adb`
