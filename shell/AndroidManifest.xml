@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The shell's manifest, a template: src/android/apk.ts fills the fields in double braces per app, and
+  aapt2 compiles it.
+
+  - extractNativeLibs="true": Node (lib/<abi>/libnode.so) must exist as a real file in the native library
+    folder, the only place an app may execute files from on Android 10+.
+  - The activity's name is fully qualified: the package changes per app, the dex doesn't.
+  - configChanges: rotating or resizing must not recreate the activity (which would restart Node).
+  - minSdk 28: Node is built for API 28 (runtime/build.sh).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="{{package}}"
+    android:versionCode="{{versionCode}}"
+    android:versionName="{{versionName}}">
+
+    <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="35" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:label="{{label}}"
+        android:icon="@mipmap/ic_launcher"
+        android:extractNativeLibs="true"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:allowBackup="false"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <activity
+            android:name="dev.nodeapk.shell.MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden|keyboard|smallestScreenSize|screenLayout|density|uiMode|navigation">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

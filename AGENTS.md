@@ -1,0 +1,3 @@
+- Don't format code by hand (no `vp check --fix`, no `vp fmt`): the pre-commit hook does it. Check with `vp lint` and `vp test`.
+- Heavy commands (the Node build, `vp lint`) run memory-capped: `systemd-run --user --scope --quiet -p MemoryMax=3G -p MemorySwapMax=0 <cmd>`. Temporary files go in `~/dev/tmp`, never `/tmp`.
+- Nothing is published to npm or GitHub without asking.

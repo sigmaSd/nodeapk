@@ -1,0 +1,39 @@
+# pnpm's settings (supply-chain safety, as in MedStation):
+# - a version published less than 3 days ago is not installed (time for a bad release to be caught);
+# - dependencies' install scripts don't run (none is needed).
+minimumReleaseAge: 4320
+
+# Vite+ bundles Vite and Vitest: packages asking for them get those same copies (vp toolchain lists them)
+overrides:
+  vite@*: "catalog:"
+  vitest@*: "catalog:"
+catalog:
+  vite: npm:@voidzero-dev/vite-plus-core@8.3.8000
+  vite-plus: 1.7.0
+  vitest: 5.1.0 # the one vite-plus bundles (vp toolchain vitest)
+peerDependencyRules:
+  allowAny:
+    - vite
+  allowedVersions:
+    vite: "*"
+minimumReleaseAgeExclude:
+  - vite-plus
+  - "@voidzero-dev/*"
+  - oxlint
+  - "@oxlint/*"
+  - oxlint-tsgolint
+  - "@oxlint-tsgolint/*"
+  - oxfmt
+  - "@oxfmt/*"
+  - vitest
+  - "@vitest/*"
+
+# `vp update --latest` takes every package to its latest major — except these deliberate holds
+updateConfig:
+  ignoreDependencies:
+    # describes the Node the code runs on: 24, here and on the phone (runtime/build.sh)
+    - "@types/node"
+    # Vite+ and the Vite and Vitest it bundles move together, with `vp migrate`
+    - vite-plus
+    - vite
+    - vitest

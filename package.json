@@ -1,0 +1,21 @@
+{
+  "name": "nodeapk",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Package a Node app that serves its own UI as an Android APK",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "demo": "node tools/build-demo.ts",
+    "demo:install": "node tools/build-demo.ts --install"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "^7.0.2",
+    "vite-plus": "catalog:"
+  },
+  "engines": {
+    "node": ">=24.11"
+  },
+  "packageManager": "pnpm@12.11.2"
+}
