@@ -26,7 +26,8 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
+          # no registry-url: it writes an .npmrc whose token is ${NODE_AUTH_TOKEN}, unset here, which can keep
+          # npm from trying trusted publishing (OIDC); npm's default registry is the public one anyway
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: The tag is package.json's version
@@ -38,4 +39,4 @@ jobs:
       # trusted publishing needs npm 11.5.1 or later: Node 24 ships 11.19
       # prepack bundles the CLI (vp pack) and compiles the shell's dex (kotlinc and R8, downloaded or from the
       # runner's Android SDK)
-      - run: npm publish --access public
+      - run: npm publish --access public --loglevel verbose
