@@ -30,15 +30,50 @@ class AppOptions(val entry: String, val multicastLock: Boolean, val allFiles: Bo
 
 object Platform {
   /**
-   * Loaded with --import before the app. Node's c-ares resolver (dns.resolve*) reads /etc/resolv.conf, which
-   * Android doesn't have, so it has no servers; the shell passes the network's in NODEAPK_DNS.
+   * Loaded with --import before the app:
+   * - Node's c-ares resolver (dns.resolve*) reads /etc/resolv.conf, which Android doesn't have, so it has no
+   *   servers; the shell passes the network's in NODEAPK_DNS.
+   * - globalThis.nodeapk: what the app can ask of the shell (NodeProcess.kt describes the wire format).
+   * No template literals in it: this is a Kotlin string, where a dollar sign starts a template.
    */
-  private const val PRELOAD = """// Written by the nodeapk shell: gives dns.resolve*() the network's DNS servers.
+  private const val PRELOAD = """// Written by the nodeapk shell (Platform.kt).
 import dns from "node:dns";
+import { createInterface } from "node:readline";
+
 const servers = (process.env.NODEAPK_DNS ?? "").split(",").filter(Boolean);
 if (servers.length) {
   try { dns.setServers(servers); } catch { /* a server Node can't parse: resolve keeps its defaults */ }
 }
+
+let next = 0;
+let lines;
+const waiting = new Map();
+function call(method, ...args) {
+  if (!lines) {
+    // answers come on stdin; unref: waiting for one must not keep Node alive on its own
+    lines = createInterface({ input: process.stdin });
+    process.stdin.unref?.();
+    lines.on("line", (line) => {
+      let answer;
+      try { answer = JSON.parse(line); } catch { return; }
+      const w = waiting.get(answer.id);
+      if (!w) return;
+      waiting.delete(answer.id);
+      if (answer.error) w.reject(new Error(answer.error));
+      else w.resolve(answer.result);
+    });
+  }
+  const id = ++next;
+  return new Promise((resolve, reject) => {
+    waiting.set(id, { resolve, reject });
+    process.stdout.write("nodeapk:call " + JSON.stringify({ id, method, args }) + "\n");
+  });
+}
+
+globalThis.nodeapk = {
+  /** Android's folder picker: the chosen folder's path, or null (cancelled, or not a local folder). */
+  pickFolder: () => call("pickFolder"),
+};
 """
 
   /** The preload file, written where Node can read it. */
@@ -49,6 +84,21 @@ if (servers.length) {
       file.writeText(PRELOAD)
     }
     return file
+  }
+
+  /**
+   * A folder chosen in Android's picker (a document tree URI) as a filesystem path, when it is on local
+   * storage: "primary:Documents/X" is /storage/emulated/0/Documents/X, "1A2B-3C4D:Music" an SD card's
+   * /storage/1A2B-3C4D/Music. Reading it needs "All files access" (the all-files permission). Null for
+   * anything else (a cloud provider, Downloads' virtual tree).
+   */
+  fun treePath(uri: Uri): String? {
+    if (uri.authority != "com.android.externalstorage.documents") return null
+    val id = try { android.provider.DocumentsContract.getTreeDocumentId(uri) } catch (_: Exception) { return null }
+    val volume = id.substringBefore(':')
+    val rel = id.substringAfter(':', "")
+    val root = if (volume == "primary") Environment.getExternalStorageDirectory().path else "/storage/$volume"
+    return if (rel.isEmpty()) root else "$root/$rel"
   }
 
   /** The active network's DNS servers ("1.1.1.1,2606:…"), without link-local ones (they need a scope). */

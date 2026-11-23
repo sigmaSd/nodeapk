@@ -43,6 +43,13 @@ phone's language, which `Intl` follows) and `NODEAPK_DNS` (the network's DNS ser
 - `all-files`: the shell opens Android's "All files access" page on first start, so the app can use
   `/storage/emulated/0/…`.
 
+**Asking the shell**: the preload also defines `globalThis.nodeapk` (a request line on stdout, the answer on
+Node's stdin):
+
+- `await nodeapk.pickFolder()`: Android's folder picker; the chosen folder as a path
+  (`/storage/emulated/0/Documents/X`, an SD card's `/storage/1A2B-3C4D/…`), or `null` if cancelled or not a
+  local folder. Reading it needs `all-files`.
+
 ## Results (2026-11-23)
 
 **The model works.** On a Xiaomi 2409BRN2CA (Android 16, arm64), the demo APK starts Node 24.22.3 from the
@@ -50,9 +57,8 @@ native library folder, Node prints its ready line, the WebView shows the page, a
 (`dns.resolve4` since the shell passes the DNS servers).
 
 **Tandem runs too**: `nodeapk build ~/dev/tandem` (an Android entry in its `shell/android/main.ts`), window
-up in 1.6 s, All files access granted from the page the shell opens. Not yet tried: an actual sync with a
-desktop. On Android its folder dialog does nothing (type the path), and a relative path lands in the app's
-private folder.
+up in 1.6 s, All files access granted from the page the shell opens. "Browse…" opens Android's folder picker
+(`nodeapk.pickFolder()`). Not yet tried: an actual sync with a desktop.
 
 | Probe | Result |
 | --- | --- |

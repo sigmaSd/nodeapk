@@ -42,6 +42,7 @@ class MainActivity : Activity() {
   private lateinit var statusScroll: ScrollView
   private var node: NodeProcess? = null
   private var multicast: android.net.wifi.WifiManager.MulticastLock? = null
+  private var pendingPick: Long? = null // the pickFolder call waiting for the picker
   private val main = Handler(Looper.getMainLooper())
   private var loaded = false // the page is shown
   private var exited = false // Node is gone: its error stays on screen
@@ -97,12 +98,45 @@ class MainActivity : Activity() {
       node = NodeProcess(
         nodeBin, listOf("--import", preload.toURI().toString()), entry, app, env,
         onReady = { url -> main.post { onReady(url) } },
+        onCall = { call -> main.post { onCall(call) } },
         onExit = { code, output -> main.post { exited = true; showError("Node exited with code $code.", output) } },
       ).also { it.start() }
     } catch (e: Exception) {
       Log.e(NodeProcess.TAG, "could not start node", e)
       main.post { exited = true; showError("Could not start Node: $e", "") }
     }
+  }
+
+  /** What Node asks of the shell (globalThis.nodeapk in the preload). */
+  private fun onCall(call: Call) {
+    val node = node ?: return
+    when (call.method) {
+      "pickFolder" -> {
+        if (pendingPick != null) return node.reply(call.id, null, "a folder picker is already open")
+        try {
+          @Suppress("DEPRECATION")
+          startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), PICK_FOLDER)
+          pendingPick = call.id
+        } catch (e: Exception) {
+          node.reply(call.id, null, "no folder picker on this phone: $e")
+        }
+      }
+      else -> node.reply(call.id, null, "unknown nodeapk call ${call.method}")
+    }
+  }
+
+  @Deprecated("Still the simplest way without AndroidX")
+  override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+    if (requestCode != PICK_FOLDER) {
+      @Suppress("DEPRECATION") super.onActivityResult(requestCode, resultCode, data)
+      return
+    }
+    val id = pendingPick ?: return
+    pendingPick = null
+    val uri = data?.data
+    val path = if (resultCode == RESULT_OK && uri != null) Platform.treePath(uri) else null
+    if (uri != null && path == null) Log.w(NodeProcess.TAG, "picked $uri, which isn't a local folder")
+    node?.reply(id, path)
   }
 
   /** Copy assets/app/ to files/app/ unless this APK's copy is already there. */
@@ -200,6 +234,7 @@ class MainActivity : Activity() {
 
   companion object {
     private const val READY_TIMEOUT_S = 30
+    private const val PICK_FOLDER = 2
   }
 }
 

@@ -8,6 +8,10 @@
 // The app contract: the server listens on 127.0.0.1 and prints one ready line on stdout,
 // `nodeapk: http://127.0.0.1:PORT/`. Everything else on stdout/stderr goes to logcat (tag "nodeapk") and
 // into a small ring buffer, shown if Node exits. MainActivity owns the lifecycle.
+//
+// Calls from Node to the shell (globalThis.nodeapk, defined by the preload in Platform.kt) travel the same
+// pipes: a `nodeapk:call {"id":1,"method":"pickFolder","args":[]}` line on stdout, answered with
+// `{"id":1,"result":…}` (or "error") on Node's stdin.
 package dev.nodeapk.shell
 
 import android.util.Log
@@ -17,12 +21,28 @@ import java.io.InputStreamReader
 import java.util.ArrayDeque
 import java.util.concurrent.TimeUnit
 
+/** A call from Node: its id (to answer), the method and its arguments. */
+class Call(val id: Long, val method: String, val args: org.json.JSONArray)
+
 /** The ready line a nodeapk app prints once its server listens. */
 object ReadyLine {
   private val pattern = Regex("""^nodeapk: (http://127\.0\.0\.1:\d{1,5}/\S*)\s*$""")
 
   /** The URL announced by [line], or null when it is any other output. */
   fun parse(line: String): String? = pattern.matchEntire(line)?.groupValues?.get(1)
+
+  private const val CALL = "nodeapk:call "
+
+  /** The call on [line], or null when it is any other output. */
+  fun call(line: String): Call? {
+    if (!line.startsWith(CALL)) return null
+    return try {
+      val json = org.json.JSONObject(line.substring(CALL.length))
+      Call(json.getLong("id"), json.getString("method"), json.optJSONArray("args") ?: org.json.JSONArray())
+    } catch (_: org.json.JSONException) {
+      null
+    }
+  }
 }
 
 class NodeProcess(
@@ -32,6 +52,7 @@ class NodeProcess(
   private val cwd: File,
   private val env: Map<String, String>,
   private val onReady: (url: String) -> Unit,
+  private val onCall: (call: Call) -> Unit,
   private val onExit: (code: Int, output: String) -> Unit,
 ) {
   private val tail = ArrayDeque<String>()
@@ -47,6 +68,7 @@ class NodeProcess(
     reader("stdout", BufferedReader(InputStreamReader(p.inputStream))) { line ->
       val url = ReadyLine.parse(line)
       if (url != null) onReady(url)
+      ReadyLine.call(line)?.let(onCall)
     }
     reader("stderr", BufferedReader(InputStreamReader(p.errorStream))) {}
     Thread({
@@ -56,6 +78,21 @@ class NodeProcess(
       Thread.sleep(200)
       if (!stopping) onExit(code, synchronized(tail) { tail.joinToString("\n") })
     }, "node-wait").start()
+  }
+
+  /** Answer a call: `result` is any JSON value (null included); `error` makes the call reject. */
+  fun reply(id: Long, result: Any?, error: String? = null) {
+    val json = org.json.JSONObject().put("id", id)
+    if (error != null) json.put("error", error) else json.put("result", result ?: org.json.JSONObject.NULL)
+    val out = process?.outputStream ?: return
+    try {
+      synchronized(out) {
+        out.write((json.toString() + "\n").toByteArray())
+        out.flush()
+      }
+    } catch (e: java.io.IOException) {
+      Log.w(TAG, "could not answer call $id: $e") // Node is gone
+    }
   }
 
   /** SIGTERM, then SIGKILL if Node has not exited within a second. */
