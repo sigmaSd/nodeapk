@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The shell's theme, light (res/values-night/themes.xml is its dark twin, picked when the phone is in dark
+  mode). It also tells the WebView which colour scheme to report to the page (prefers-color-scheme, through
+  android:isLightTheme), and colours the launch screen and the system bars' icons.
+-->
+<resources>
+  <style name="NodeapkTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+    <item name="android:windowLightStatusBar">true</item>
+    <item name="android:windowLightNavigationBar">true</item>
+  </style>
+</resources>

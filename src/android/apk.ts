@@ -28,7 +28,37 @@ export interface ApkOptions {
   /** Extra manifest lines (<uses-permission …/>). */
   permissions: readonly string[];
   icon?: string; // a PNG, replaces the shell's launcher icon
+  /** A release key; without one, the debug key in the cache (a different one on every machine). */
+  signing?: Signing;
   output: string;
+}
+
+/**
+ * A release key: a keystore made once (`nodeapk keygen`) and kept, since Android only updates an app with
+ * the key it was installed with. The passwords come from the environment (apksigner reads them there, so
+ * they are never on a command line): NODEAPK_KEYSTORE_PASSWORD, and NODEAPK_KEY_PASSWORD when the key's
+ * own differs (a PKCS12 keystore, keytool's default, has one password for both).
+ */
+export interface Signing {
+  keystore: string;
+  alias?: string; // needed only when the keystore holds several keys
+}
+
+/** apksigner's key arguments for a release key. */
+export function releaseKeyArgs(signing: Signing, env: NodeJS.ProcessEnv = process.env): string[] {
+  if (!existsSync(signing.keystore)) throw new Error(`keystore ${signing.keystore} not found`);
+  if (!env.NODEAPK_KEYSTORE_PASSWORD) {
+    throw new Error("set NODEAPK_KEYSTORE_PASSWORD to the keystore's password (--keystore)");
+  }
+  return [
+    "--ks",
+    signing.keystore,
+    ...(signing.alias ? ["--ks-key-alias", signing.alias] : []),
+    "--ks-pass",
+    "env:NODEAPK_KEYSTORE_PASSWORD",
+    "--key-pass",
+    env.NODEAPK_KEY_PASSWORD ? "env:NODEAPK_KEY_PASSWORD" : "env:NODEAPK_KEYSTORE_PASSWORD",
+  ];
 }
 
 /**
@@ -104,17 +134,21 @@ export async function buildApk(opts: ApkOptions): Promise<string> {
     await mkdir(dirname(opts.output), { recursive: true });
     // align first (-p: page-align the .so), then sign: signing preserves alignment, the reverse breaks the signature
     await run(sdk.zipalign, ["-f", "-p", "4", base, opts.output]);
-    const key = await debugKeystore();
+    const keyArgs = opts.signing
+      ? releaseKeyArgs(opts.signing)
+      : [
+          "--ks",
+          await debugKeystore(),
+          "--ks-key-alias",
+          KEY_ALIAS,
+          "--ks-pass",
+          `pass:${KEY_PASS}`,
+          "--key-pass",
+          `pass:${KEY_PASS}`,
+        ];
     await run(sdk.apksigner, [
       "sign",
-      "--ks",
-      key,
-      "--ks-key-alias",
-      KEY_ALIAS,
-      "--ks-pass",
-      `pass:${KEY_PASS}`,
-      "--key-pass",
-      `pass:${KEY_PASS}`,
+      ...keyArgs,
       "--v2-signing-enabled",
       "true",
       "--v3-signing-enabled",

@@ -7,7 +7,7 @@
 import { existsSync } from "node:fs";
 import { cp, mkdir, mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { buildApk } from "./android/apk.ts";
+import { buildApk, type Signing } from "./android/apk.ts";
 import { ensureNode } from "./android/runtime.ts";
 import { ensureSdk } from "./android/sdk.ts";
 import { type AppConfig, PERMISSIONS } from "./config.ts";
@@ -19,6 +19,7 @@ const home = new URL("..", import.meta.url).pathname;
 export interface BuildOptions {
   output?: string; // default: <project>/dist/<id>.apk
   runtime?: string; // a local node-android archive or executable instead of the release
+  signing?: Signing; // a release key (default: the cache's debug key)
 }
 
 /** Every .node file under `dir` (relative paths). */
@@ -72,6 +73,7 @@ export async function build(app: AppConfig, opts: BuildOptions = {}): Promise<st
       },
       permissions: app.permissions.flatMap((p) => PERMISSIONS[p]),
       icon: app.icon,
+      signing: opts.signing,
       output: opts.output ?? join(app.dir, "dist", `${app.id}.apk`),
     });
   } finally {

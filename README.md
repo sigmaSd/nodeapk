@@ -38,9 +38,21 @@ for `--install`. The first build downloads the Android SDK's build tools and Nod
 minutes) into `~/.cache/nodeapk`; later builds take seconds. An `$ANDROID_HOME` with build-tools 35.0.0 and
 platform android-35 is used instead when there is one.
 
-APKs are signed with a debug key made in that cache: fine for installing yourself, not for a store. A new
-cache (another machine) means a new key, and Android then refuses to update the app over the old one:
-uninstall it first.
+**Signing.** Android installs an update only if it is signed with the same key as the installed app. By
+default APKs get a debug key made in that cache: fine for your own phone, but another machine (or CI) has
+another key, and Android refuses to update over it. To release an app, make a key once and keep it:
+
+```bash
+npx @sigmasd/nodeapk keygen myapp.keystore --name "My App"   # keytool asks for a password
+NODEAPK_KEYSTORE_PASSWORD=… npx @sigmasd/nodeapk build --keystore myapp.keystore
+```
+
+Back up the keystore and its password: losing either means users must uninstall to get updates. In CI, keep
+the keystore (base64) and the password as secrets. `--key-alias` picks a key when the keystore has several;
+`NODEAPK_KEY_PASSWORD` is the key's own password when it differs from the keystore's.
+
+The app follows the phone's dark mode (the WebView reports it as `prefers-color-scheme`), as it is when the
+app starts.
 
 **The app contract**: listen on 127.0.0.1 (any port), print one line `nodeapk: http://127.0.0.1:PORT/…` on
 stdout once ready (a path and query may follow: Tandem passes its secret), keep data in `NODEAPK_DATA` and

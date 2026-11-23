@@ -7,7 +7,8 @@
     folder, the only place an app may execute files from on Android 10+.
   - The activity's name is fully qualified: the package changes per app, the dex doesn't.
   - configChanges: rotating or resizing must not recreate the activity (which would restart Node).
-  - minSdk 28: Node is built for API 28 (runtime/build.sh).
+  - minSdk 28: Node is built for API 28 (node-android's build.sh).
+  - The theme (res/values/themes.xml, res/values-night/) follows the phone's dark mode at launch.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="{{package}}"
@@ -27,7 +28,7 @@
         android:allowBackup="false"
         android:supportsRtl="true"
         android:requestLegacyExternalStorage="true"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        android:theme="@style/NodeapkTheme">
         <activity
             android:name="dev.nodeapk.shell.MainActivity"
             android:exported="true"
