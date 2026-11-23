@@ -1,6 +1,6 @@
 # Publishes @sigmasd/nodeapk to npm when a version tag is pushed (v0.1.1, matching package.json's version),
 # with npm's trusted publishing: npm trusts this workflow (npmjs.com → the package's Settings → Trusted
-# Publisher: GitHub Actions, sigmaSd/nodeapk, publish.yml), so no npm token is stored anywhere and no 2FA is
+# Publisher: GitHub Actions, sigmaSd/nodeapk with that capital S, publish.yml), so no npm token is stored and no 2FA is
 # asked; the package gets provenance pointing at this run.
 #
 # To release: bump "version" in package.json, commit, then `git tag v<version> && git push --tags`.

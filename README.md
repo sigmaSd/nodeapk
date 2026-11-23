@@ -188,3 +188,8 @@ git tag v0.1.1 && git push origin master v0.1.1
 ```
 
 The workflow checks the tag matches package.json, runs `vp check` and `vp test`, and publishes.
+
+npm's side of it is a trusted-publisher entry for the package (`npm trust list @sigmasd/nodeapk`). Its
+repository must match GitHub's spelling exactly, `sigmaSd/nodeapk`: an entry made as `sigmasd/nodeapk`
+fails with "OIDC token exchange error - package not found". To make it:
+`npm trust github @sigmasd/nodeapk --file publish.yml --repo sigmaSd/nodeapk --allow-publish`.
