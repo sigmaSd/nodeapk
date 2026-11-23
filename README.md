@@ -177,3 +177,14 @@ node src/cli.ts build demo --runtime ../node-android/out/node-v24.22.3-android-a
 types inside `node_modules`), and `tools/prebuild-dex.ts` compiles the shell into `shell/classes.dex`, shipped
 with the key of its sources, so users never need the Kotlin compiler. From the checkout, `node src/cli.ts`
 compiles the shell itself when its sources change (kotlinc is downloaded once).
+
+## Releasing
+
+GitHub publishes to npm (`.github/workflows/publish.yml`, npm's trusted publishing: no token, no 2FA prompt,
+with provenance): bump `version` in package.json, commit, then
+
+```bash
+git tag v0.1.1 && git push origin master v0.1.1
+```
+
+The workflow checks the tag matches package.json, runs `vp check` and `vp test`, and publishes.

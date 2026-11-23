@@ -1,0 +1,41 @@
+# Publishes @sigmasd/nodeapk to npm when a version tag is pushed (v0.1.1, matching package.json's version),
+# with npm's trusted publishing: npm trusts this workflow (npmjs.com → the package's Settings → Trusted
+# Publisher: GitHub Actions, sigmaSd/nodeapk, publish.yml), so no npm token is stored anywhere and no 2FA is
+# asked; the package gets provenance pointing at this run.
+#
+# To release: bump "version" in package.json, commit, then `git tag v<version> && git push --tags`.
+# Actions are pinned by commit (supply-chain safety), with their version in a comment.
+
+name: Publish
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write # the short-lived OIDC token npm checks instead of a password
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1 (pnpm version: package.json packageManager)
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: The tag is package.json's version
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME, package.json $version"; exit 1; }
+      - run: pnpm exec vp check
+      - run: pnpm exec vp test
+      # trusted publishing needs npm 11.5.1 or later: Node 24 ships 11.19
+      # prepack bundles the CLI (vp pack) and compiles the shell's dex (kotlinc and R8, downloaded or from the
+      # runner's Android SDK)
+      - run: npm publish --access public
