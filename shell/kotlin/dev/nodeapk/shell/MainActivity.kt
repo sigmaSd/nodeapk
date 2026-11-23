@@ -35,6 +35,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.ScrollView
 import android.widget.TextView
 import java.io.File
@@ -43,6 +44,7 @@ class MainActivity : Activity() {
   private lateinit var webView: WebView
   private lateinit var status: TextView
   private lateinit var statusScroll: ScrollView
+  private lateinit var splash: ImageView // the app's icon while Node starts, as Android apps do
   private var node: NodeProcess? = null
   private var multicast: android.net.wifi.WifiManager.MulticastLock? = null
   private var pendingPick: Long? = null // the pickFolder call waiting for the picker
@@ -64,6 +66,8 @@ class MainActivity : Activity() {
     Thread({ startNode(options) }, "node-start").start()
     main.postDelayed({
       if (!loaded && !exited && !isFinishing) {
+        splash.visibility = View.GONE
+        statusScroll.visibility = View.VISIBLE
         status.text = "Still waiting for Node's ready line after $READY_TIMEOUT_S s…"
       }
     }, READY_TIMEOUT_S * 1000L)
@@ -184,6 +188,7 @@ class MainActivity : Activity() {
     loaded = true
     Log.i(NodeProcess.TAG, "ready after ${(System.nanoTime() - startedAt) / 1_000_000} ms: $url")
     statusScroll.visibility = View.GONE
+    // the icon stays over the WebView until the page has loaded (onPageFinished): no blank flash between
     webView.visibility = View.VISIBLE
     webView.loadUrl(url)
   }
@@ -192,6 +197,7 @@ class MainActivity : Activity() {
     if (isFinishing) return
     webView.visibility = View.GONE
     statusScroll.visibility = View.VISIBLE
+    splash.visibility = View.GONE
     status.setTextColor(Color.rgb(0xb0, 0x20, 0x20))
     status.text = if (output.isEmpty()) message else "$message\n\n$output"
     // The cause (an exception's stack trace) is printed last
@@ -208,6 +214,10 @@ class MainActivity : Activity() {
       // the app's own page: its media (a camera preview started after getUserMedia, say) may play on its own
       settings.mediaPlaybackRequiresUserGesture = false
       webViewClient = object : WebViewClient() {
+        override fun onPageFinished(view: WebView, url: String) {
+          splash.visibility = View.GONE
+        }
+
         // The app's own pages stay here; any other link opens in the browser
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
           if (request.url.isLocal()) return false
@@ -240,13 +250,18 @@ class MainActivity : Activity() {
       }
     }
     status = TextView(this).apply {
-      text = "Starting…"
       typeface = Typeface.MONOSPACE
       textSize = 13f
       setTextIsSelectable(true)
       setPadding(32, 32, 32, 32)
     }
-    statusScroll = ScrollView(this).apply { addView(status) }
+    statusScroll = ScrollView(this).apply {
+      addView(status)
+      visibility = View.GONE
+    }
+    // the launcher icon, centred: Android 12+ shows the same at launch, so the start looks like one screen
+    splash = ImageView(this).apply { setImageResource(applicationInfo.icon) }
+    val iconSize = (96 * resources.displayMetrics.density).toInt()
 
     // Edge-to-edge is forced from targetSdk 35: pad a container by the system bars (WebView ignores its
     // own padding)
@@ -254,6 +269,7 @@ class MainActivity : Activity() {
     val match = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
     root.addView(webView, match)
     root.addView(statusScroll, FrameLayout.LayoutParams(match))
+    root.addView(splash, FrameLayout.LayoutParams(iconSize, iconSize, android.view.Gravity.CENTER))
     root.setOnApplyWindowInsetsListener { v, insets ->
       @Suppress("DEPRECATION")
       v.setPadding(insets.systemWindowInsetLeft, insets.systemWindowInsetTop, insets.systemWindowInsetRight, insets.systemWindowInsetBottom)

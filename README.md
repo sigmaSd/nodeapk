@@ -129,7 +129,7 @@ APK
    `libnode.so --import <preload> files/app/<entry>` in `files/app/`, with the environment described in
    Use (`NODEAPK_DATA` is `files/data`, `NODEAPK_CACHE` is `cache/node`).
 3. The app listens on 127.0.0.1 and prints `nodeapk: http://127.0.0.1:PORT/`. The shell loads that URL in a
-   WebView. Cleartext HTTP is allowed to 127.0.0.1 only (`res/xml/network_security_config.xml`).
+   WebView; until the page has loaded it shows the app's icon, centred, as Android apps do. Cleartext HTTP is allowed to 127.0.0.1 only (`res/xml/network_security_config.xml`).
 4. If Node exits, the WebView is replaced by the exit code and the last 60 lines Node printed (a slow start
    only gets a note: see Results). All of Node's output also goes to logcat (`adb logcat -s nodeapk`).
 5. Closing the activity stops Node (SIGTERM, then SIGKILL after 1 s).
