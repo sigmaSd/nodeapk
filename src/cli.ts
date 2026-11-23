@@ -7,6 +7,7 @@
 // --install, installs it on the phone connected through adb and starts it.
 
 import { resolve } from "node:path";
+import pkg from "../package.json" with { type: "json" };
 import { parseArgs } from "node:util";
 import { build } from "./build.ts";
 import { readConfig } from "./config.ts";
@@ -23,8 +24,13 @@ async function main(): Promise<void> {
       install: { type: "boolean", default: false },
       serial: { type: "string" },
       help: { type: "boolean", short: "h", default: false },
+      version: { type: "boolean", short: "v", default: false },
     },
   });
+  if (values.version) {
+    console.log(pkg.version);
+    return;
+  }
   const [command, dir = "."] = positionals;
   if (values.help || command !== "build") {
     console.log(USAGE);

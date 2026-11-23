@@ -1,2 +1,4 @@
 node_modules/
 dist/
+shell/classes.dex
+shell/classes.dex.key

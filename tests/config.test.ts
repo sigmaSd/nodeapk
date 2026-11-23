@@ -26,7 +26,7 @@ test("config: paths are kept relative and inside the project", () => {
 test("config: a missing block, a bad id or an unknown permission is explained", () => {
   expect(() => parseConfig("/p", { name: "x" })).toThrow(/no "nodeapk" block/);
   expect(() => parseConfig("/p", pkg({ id: "example" }))).toThrow(/Android package name/);
-  expect(() => parseConfig("/p", pkg({ permissions: ["camera"] }))).toThrow(/unknown "camera"/);
+  expect(() => parseConfig("/p", pkg({ permissions: ["contacts"] }))).toThrow(/unknown "contacts"/);
 });
 
 test("config: versionCode grows with the version", () => {

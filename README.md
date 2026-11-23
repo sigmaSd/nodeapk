@@ -3,10 +3,13 @@
 Package a Node app that serves its own UI as an Android APK: Node runs on the phone as a separate process,
 and a WebView shows its local server ("Electron for Android", minus Electron).
 
-Milestone 1 (de-risking) is done, and a first `nodeapk build` CLI builds any app with a `nodeapk` block,
-Tandem included. It has Node 24 built for Android,
-a Kotlin shell, a script building a demo APK, and probe results from a real device. Nothing is published to
-npm; Node for Android is published by [node-android](https://github.com/sigmaSd/node-android).
+```bash
+npx nodeapk build ~/my-app --install
+```
+
+Node for Android itself comes from [node-android](https://github.com/sigmaSd/node-android), which builds every
+Node 24 release. Milestone 1 (proving the model on a real phone) is done: the results are below. Tandem is
+the first real app.
 
 ## Use
 
@@ -24,10 +27,17 @@ In the app's package.json:
 ```
 
 ```bash
-node ~/dev/nodeapk/src/cli.ts build [dir] [--install] [--serial <device>] [--out <file.apk>] [--runtime <node-android archive>]
+npx nodeapk build [dir] [--install] [--serial <device>] [--out <file.apk>] [--runtime <node-android archive>]
 ```
 
-The APK goes to `<dir>/dist/<id>.apk`. Not on npm yet (`npx nodeapk` needs a bundled CLI first).
+The APK goes to `<dir>/dist/<id>.apk`. Needs Node 24.11+, a JDK (17+), `zip`, `unzip` and `tar`, and `adb`
+for `--install`. The first build downloads the Android SDK's build tools and Node for Android (~250 MB, a few
+minutes) into `~/.cache/nodeapk`; later builds take seconds. An `$ANDROID_HOME` with build-tools 35.0.0 and
+platform android-35 is used instead when there is one.
+
+APKs are signed with a debug key made in that cache: fine for installing yourself, not for a store. A new
+cache (another machine) means a new key, and Android then refuses to update the app over the old one:
+uninstall it first.
 
 **The app contract**: listen on 127.0.0.1 (any port), print one line `nodeapk: http://127.0.0.1:PORT/…` on
 stdout once ready (a path and query may follow: Tandem passes its secret), keep data in `NODEAPK_DATA` and
@@ -150,7 +160,7 @@ Node itself is built in its own repository, [sigmaSd/node-android](https://githu
 a GitHub workflow builds every new Node 24 release for arm64 and x64 and publishes it there. nodeapk
 downloads the pinned release (`src/android/runtime.ts`) and checks its SHA-256.
 
-## Building
+## Working on nodeapk
 
 The demo APK (downloads the SDK build tools, kotlinc and Node into `~/.cache/nodeapk` on first use):
 
@@ -160,4 +170,7 @@ node src/cli.ts build demo --install  # and adb install + start it
 node src/cli.ts build demo --runtime ../node-android/out/node-v24.22.3-android-arm64.tar.xz   # a local Node build
 ```
 
-Needs Node 24, a JDK (17+; tested with 25), `zip` and `unzip`.
+`npm pack` (and publishing) runs `prepack`: `vp pack` bundles the CLI into `dist/cli.mjs` (Node won't strip
+types inside `node_modules`), and `tools/prebuild-dex.ts` compiles the shell into `shell/classes.dex`, shipped
+with the key of its sources, so users never need the Kotlin compiler. From the checkout, `node src/cli.ts`
+compiles the shell itself when its sources change (kotlinc is downloaded once).

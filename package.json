@@ -1,14 +1,37 @@
 {
   "name": "nodeapk",
-  "version": "0.0.0",
-  "private": true,
-  "description": "Package a Node app that serves its own UI as an Android APK",
+  "version": "0.1.0",
+  "description": "Package a Node app that serves its own UI as an Android APK: Node runs on the phone, the UI in a WebView",
+  "keywords": [
+    "android",
+    "apk",
+    "mobile",
+    "node",
+    "webview"
+  ],
+  "homepage": "https://github.com/sigmaSd/nodeapk",
+  "bugs": "https://github.com/sigmaSd/nodeapk/issues",
   "license": "MIT",
-  "bin": {
-    "nodeapk": "./src/cli.ts"
+  "author": "sigmaSd",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sigmaSd/nodeapk.git"
   },
+  "bin": {
+    "nodeapk": "dist/cli.mjs"
+  },
+  "files": [
+    "dist/cli.mjs",
+    "shell/AndroidManifest.xml",
+    "shell/classes.dex",
+    "shell/classes.dex.key",
+    "shell/kotlin",
+    "shell/r8.pro",
+    "shell/res"
+  ],
   "type": "module",
   "scripts": {
+    "prepack": "vp pack && node tools/prebuild-dex.ts",
     "demo": "node src/cli.ts build demo",
     "demo:install": "node src/cli.ts build demo --install"
   },

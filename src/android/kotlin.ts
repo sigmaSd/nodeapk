@@ -37,13 +37,26 @@ async function sources(dir: string): Promise<string[]> {
     .sort();
 }
 
-/** The shell's classes.dex, compiled if its sources changed since the last build. */
-export async function ensureShellDex(sdk: Sdk, shellDir: string): Promise<string> {
+/** What the shell's dex is built from: a hash of its sources, R8 rules and compiler (16 hex digits). */
+export async function shellKey(shellDir: string): Promise<{ key: string; files: string[] }> {
   const files = await sources(join(shellDir, "kotlin"));
   if (!files.length) throw new Error(`no Kotlin sources in ${shellDir}/kotlin`);
   const hash = createHash("sha256").update(`kotlin ${KOTLIN} min ${MIN_SDK}\n`);
-  for (const f of [...files, join(shellDir, "r8.pro")]) hash.update(f.slice(shellDir.length)).update(await readFile(f));
-  const out = join(cacheDir(), "dex", hash.digest("hex").slice(0, 16));
+  for (const f of [...files, join(shellDir, "r8.pro")])
+    hash.update(f.slice(shellDir.length)).update(await readFile(f));
+  return { key: hash.digest("hex").slice(0, 16), files };
+}
+
+/**
+ * The shell's classes.dex: the one shipped in the npm package (shell/classes.dex, built by
+ * tools/prebuild-dex.ts) when it matches the sources, else compiled once into the cache.
+ */
+export async function ensureShellDex(sdk: Sdk, shellDir: string): Promise<string> {
+  const { key, files } = await shellKey(shellDir);
+  const shipped = join(shellDir, "classes.dex");
+  const shippedKey = await readFile(`${shipped}.key`, "utf8").catch(() => "");
+  if (shippedKey.trim() === key && existsSync(shipped)) return shipped;
+  const out = join(cacheDir(), "dex", key);
   const dex = join(out, "classes.dex");
   if (existsSync(dex)) return dex;
 
@@ -53,12 +66,31 @@ export async function ensureShellDex(sdk: Sdk, shellDir: string): Promise<string
   const jar = join(out, "shell.jar");
   // -no-jdk: java.* comes from android.jar, as on the device
   await run(join(kotlinHome, "bin", "kotlinc"), [
-    "-no-jdk", "-no-reflect", "-jvm-target", "17", "-classpath", sdk.androidJar, "-d", jar, ...files,
+    "-no-jdk",
+    "-no-reflect",
+    "-jvm-target",
+    "17",
+    "-classpath",
+    sdk.androidJar,
+    "-d",
+    jar,
+    ...files,
   ]);
   await run("java", [
-    "-cp", join(dirname(sdk.d8), "lib", "d8.jar"), "com.android.tools.r8.R8",
-    "--release", "--min-api", String(MIN_SDK), "--lib", sdk.androidJar, "--pg-conf", join(shellDir, "r8.pro"),
-    "--output", out, jar, join(kotlinHome, "lib", "kotlin-stdlib.jar"),
+    "-cp",
+    join(dirname(sdk.d8), "lib", "d8.jar"),
+    "com.android.tools.r8.R8",
+    "--release",
+    "--min-api",
+    String(MIN_SDK),
+    "--lib",
+    sdk.androidJar,
+    "--pg-conf",
+    join(shellDir, "r8.pro"),
+    "--output",
+    out,
+    jar,
+    join(kotlinHome, "lib", "kotlin-stdlib.jar"),
   ]);
   await rm(jar);
   if (!existsSync(dex)) throw new Error(`R8 produced no ${dex}`);
