@@ -1,6 +1,6 @@
 {
   "name": "@sigmasd/nodeapk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Package a Node app that serves its own UI as an Android APK: Node runs on the phone, the UI in a WebView",
   "keywords": [
     "android",
