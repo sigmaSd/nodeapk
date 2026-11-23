@@ -33,7 +33,10 @@ export async function ensureNode(arch: "arm64" | "x64", local?: string): Promise
 
 /** Where a local archive is unpacked: per file content, so a rebuilt archive is unpacked again. */
 async function localDir(archive: string): Promise<string> {
-  const hash = createHash("sha256").update(await readFile(archive)).digest("hex").slice(0, 12);
+  const hash = createHash("sha256")
+    .update(await readFile(archive))
+    .digest("hex")
+    .slice(0, 12);
   return join(cacheDir(), "runtime", `${basename(archive, ".tar.xz")}-${hash}`);
 }
 

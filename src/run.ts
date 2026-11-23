@@ -29,7 +29,11 @@ export function run(cmd: string, args: string[], opts: RunOptions = {}): Promise
       const stdout = Buffer.concat(out).toString();
       if (code === 0) return resolve(stdout);
       const name = cmd.split("/").at(-1);
-      reject(new Error(`${name} ${args.slice(0, 3).join(" ")}… exited with ${code ?? "a signal"}\n${stdout}${Buffer.concat(err).toString()}`));
+      reject(
+        new Error(
+          `${name} ${args.slice(0, 3).join(" ")}… exited with ${code ?? "a signal"}\n${stdout}${Buffer.concat(err).toString()}`,
+        ),
+      );
     });
     if (opts.stdin !== undefined) child.stdin!.end(opts.stdin);
   });

@@ -13,7 +13,8 @@ import { cacheDir, download, run } from "../run.ts";
 
 export const BUILD_TOOLS = "35.0.0";
 export const PLATFORM = "android-35";
-const CMDLINE_TOOLS_URL = "https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip";
+const CMDLINE_TOOLS_URL =
+  "https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip";
 const CMDLINE_TOOLS_SHA256 = "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583";
 
 export interface Sdk {
