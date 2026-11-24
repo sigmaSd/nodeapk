@@ -25,7 +25,8 @@ In the app's package.json:
   "icon": "app/icon.png",              // a PNG (default: nodeapk's)
   "entry": "dist/android.mjs",         // the file Node runs
   "files": ["app/ui/dist"],            // shipped too, at the same paths relative to the project
-  "permissions": ["multicast", "all-files"]   // optional
+  "permissions": ["multicast", "all-files"],  // optional
+  "versionCode": 10203                 // optional: Android's versionCode (default: from version, 1.2.3 → 10203)
 }
 ```
 

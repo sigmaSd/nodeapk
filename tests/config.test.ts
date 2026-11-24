@@ -35,3 +35,10 @@ test("config: versionCode grows with the version", () => {
   expect(versionCode("0.0.0")).toBe(1);
   expect(() => versionCode("1.100.0")).toThrow(/below 100/);
 });
+
+test("config: a versionCode written out is used as is, and must be a whole number", () => {
+  expect(parseConfig("/p", pkg({ versionCode: 10203 })).versionCode).toBe(10203);
+  expect(parseConfig("/p", pkg({ versionCode: 7 })).versionCode).toBe(7);
+  expect(() => parseConfig("/p", pkg({ versionCode: "10203" }))).toThrow(/whole number/);
+  expect(() => parseConfig("/p", pkg({ versionCode: 0 }))).toThrow(/whole number/);
+});

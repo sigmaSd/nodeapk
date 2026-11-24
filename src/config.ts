@@ -6,7 +6,8 @@
 //     "icon": "app/icon.png",            launcher icon, a PNG (default: nodeapk's)
 //     "entry": "dist/android.mjs",       the file Node runs, ideally one bundled file
 //     "files": ["app/ui/dist"],          shipped too, at the same paths relative to the project
-//     "permissions": ["multicast"]       optional: "multicast", "all-files", "camera"
+//     "permissions": ["multicast"],      optional: "multicast", "all-files", "camera"
+//     "versionCode": 10203               optional: Android's versionCode (default: from version, below)
 //   }
 //
 // Everything is shipped at its path relative to the project, so an entry that finds its files with
@@ -88,12 +89,17 @@ export function parseConfig(dir: string, pkg: Record<string, unknown>): AppConfi
       throw new Error(`nodeapk.permissions: unknown "${p}" (known: ${Object.keys(PERMISSIONS).join(", ")})`);
     }
   }
+  // written out for a store that reads it from the sources (F-Droid can't compute it from the version)
+  const code = block.versionCode ?? versionCode(version);
+  if (!Number.isSafeInteger(code) || (code as number) < 1) {
+    throw new Error(`nodeapk.versionCode must be a whole number from 1 (got ${JSON.stringify(code)})`);
+  }
   return {
     dir,
     id,
     name,
     version,
-    versionCode: versionCode(version),
+    versionCode: code as number,
     icon: block.icon === undefined ? undefined : join(dir, inside("icon", block.icon)),
     entry: inside("entry", block.entry),
     files: files.map((f, i) => inside(`files[${i}]`, f)),
