@@ -57,13 +57,21 @@ test("zip: the same files give the same bytes, whatever their order on disk, the
     }
     return dir;
   };
-  const files = ["classes.dex", "lib/arm64-v8a/libnode.so", "assets/app/b.js", "assets/app/a.js", "assets/x.json"];
+  const files = [
+    "classes.dex",
+    "lib/arm64-v8a/libnode.so",
+    "assets/app/b.js",
+    "assets/app/a.js",
+    "assets/x.json",
+  ];
   const one = make("one", files, 0o755);
   await new Promise((r) => setTimeout(r, 1100)); // another second: zip keeps two-second times
   const two = make("two", files.toReversed(), 0o600);
   await addToZip(join(root, "one.zip"), one);
   await addToZip(join(root, "two.zip"), two);
   expect(readFileSync(join(root, "one.zip")).equals(readFileSync(join(root, "two.zip")))).toBe(true);
-  const listing = execFileSync("unzip", ["-Z1", join(root, "one.zip")], { encoding: "utf8" }).trim().split("\n");
+  const listing = execFileSync("unzip", ["-Z1", join(root, "one.zip")], { encoding: "utf8" })
+    .trim()
+    .split("\n");
   expect(listing).toEqual([...files].sort()); // sorted, and no directory entries
 });
