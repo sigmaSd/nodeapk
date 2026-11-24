@@ -38,6 +38,7 @@ const probes: Probe[] = [
         "NODEAPK_VERSION",
         "NODEAPK_DNS",
         "LANG",
+        "NODEAPK_DEVICE_NAME",
       ];
       return (
         `${process.version} ${process.platform}/${process.arch}, Intl locale ` +

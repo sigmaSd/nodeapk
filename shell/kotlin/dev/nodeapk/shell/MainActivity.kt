@@ -102,6 +102,7 @@ class MainActivity : Activity() {
         "NODEAPK_VERSION" to (packageManager.getPackageInfo(packageName, 0).versionName ?: ""),
         "NODEAPK_DNS" to Platform.dnsServers(this),
         "LANG" to Platform.lang(),
+        "NODEAPK_DEVICE_NAME" to Platform.deviceName(this),
       )
       val preload = Platform.preload(this)
       val nodeBin = File(applicationInfo.nativeLibraryDir, "libnode.so")

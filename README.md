@@ -61,7 +61,8 @@ project-relative path, so an entry that finds its files with `import.meta.dirnam
 
 The shell also sets `HOME`, `TMPDIR`, `NODEAPK_VERSION` (the app's version), `NODEAPK_PACKAGE`, `LANG` (the
 phone's language, which `Intl` follows) and `NODEAPK_DNS` (the network's DNS servers, applied with
-`dns.setServers()` by a preload so that `dns.resolve*()` works). Permissions:
+`dns.setServers()` by a preload so that `dns.resolve*()` works) and `NODEAPK_DEVICE_NAME` (the phone's name
+from its settings, else maker and model: `os.hostname()` is always `localhost` on Android). Permissions:
 
 - `multicast`: the shell holds a Wi-Fi multicast lock while the app is open (broadcast and multicast
   discovery).

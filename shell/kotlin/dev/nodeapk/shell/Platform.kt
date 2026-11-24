@@ -110,6 +110,21 @@ globalThis.nodeapk = {
     return props.dnsServers.filter { !it.isLinkLocalAddress }.mapNotNull { it.hostAddress }.joinToString(",")
   }
 
+  /**
+   * The phone's name, as its owner knows it: Android's "Device name" setting (Settings → About phone), else
+   * maker and model. Node's os.hostname() is always "localhost" on Android, useless to tell phones apart.
+   */
+  fun deviceName(context: Context): String {
+    val set = try {
+      Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)
+    } catch (_: Exception) {
+      null // not readable on this phone: fall back to the model
+    }
+    if (!set.isNullOrBlank()) return set.trim()
+    val maker = Build.MANUFACTURER.replaceFirstChar { it.uppercase() }
+    return if (Build.MODEL.startsWith(maker, ignoreCase = true)) Build.MODEL else "$maker ${Build.MODEL}"
+  }
+
   /** The phone's language as POSIX LANG (fr_FR.UTF-8): ICU, and so Intl, takes its default from it. */
   fun lang(): String {
     val l = Locale.getDefault()
