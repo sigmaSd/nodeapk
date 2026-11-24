@@ -19,7 +19,7 @@ const home = new URL("..", import.meta.url).pathname;
 export interface BuildOptions {
   output?: string; // default: <project>/dist/<id>.apk
   runtime?: string; // a local node-android archive or executable instead of the release
-  signing?: Signing; // a release key (default: the cache's debug key)
+  signing?: Signing | "none"; // a release key, or none (default: the cache's debug key)
 }
 
 /** Every .node file under `dir` (relative paths). */

@@ -2,13 +2,17 @@
 // (lib/<abi>/libnode.so), the app's files (assets/app/) and the shell's runtime options
 // (assets/nodeapk.json) added to the zip, aligned and debug-signed.
 //
+// The same inputs give the same APK, byte for byte, on any machine (before signing): files are added in a
+// fixed order with a fixed time and mode, so a store that builds from source (F-Droid) can check its build
+// against the published APK and ship it with the app's own signature.
+//
 // The manifest is generated and compiled, not binary-patched: aapt2 link on a handful of resources takes
 // well under a second (denoapk's finding). Signing uses a debug key generated once in the cache — fine for
 // sideloading and `adb install`, not for a store.
 
 import { existsSync } from "node:fs";
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { chmod, cp, mkdir, mkdtemp, readdir, readFile, rm, utimes, writeFile } from "node:fs/promises";
+import { dirname, join, relative } from "node:path";
 import { cacheDir, run } from "../run.ts";
 import { ensureShellDex } from "./kotlin.ts";
 import type { Sdk } from "./sdk.ts";
@@ -28,8 +32,8 @@ export interface ApkOptions {
   /** Extra manifest lines (<uses-permission …/>). */
   permissions: readonly string[];
   icon?: string; // a PNG, replaces the shell's launcher icon
-  /** A release key; without one, the debug key in the cache (a different one on every machine). */
-  signing?: Signing;
+  /** A release key, or "none" (aligned, unsigned); without one, the debug key in the cache (a different one on every machine). */
+  signing?: Signing | "none";
   output: string;
 }
 
@@ -128,12 +132,12 @@ export async function buildApk(opts: ApkOptions): Promise<string> {
     }
     await cp(opts.appDir, join(stage, "assets", "app"), { recursive: true });
     await writeFile(join(stage, "assets", "nodeapk.json"), JSON.stringify(opts.runtime));
-    // -X: no extra fields (they fight zipalign)
-    await run("zip", ["-q", "-X", "-r", base, "classes.dex", "lib", "assets"], { cwd: stage });
+    await addToZip(base, stage);
 
     await mkdir(dirname(opts.output), { recursive: true });
     // align first (-p: page-align the .so), then sign: signing preserves alignment, the reverse breaks the signature
     await run(sdk.zipalign, ["-f", "-p", "4", base, opts.output]);
+    if (opts.signing === "none") return opts.output;
     const keyArgs = opts.signing
       ? releaseKeyArgs(opts.signing)
       : [
@@ -161,6 +165,30 @@ export async function buildApk(opts: ApkOptions): Promise<string> {
   } finally {
     await rm(work, { recursive: true, force: true });
   }
+}
+
+/** 1981-01-01, as aapt2 stamps its own entries: zip's dates start in 1980, and a fixed one keeps builds equal. */
+const FIXED_TIME = new Date("1981-01-01T00:00:00Z");
+
+/**
+ * Add every file under `dir` to the zip `archive`, the same way on any machine: sorted by path (not in the
+ * order the disk lists them), each with a fixed time and mode, no directory entries. -X: no extra fields
+ * (they carry times and owners, and fight zipalign); TZ=UTC: zip stores local time.
+ */
+export async function addToZip(archive: string, dir: string): Promise<void> {
+  const files = (await readdir(dir, { recursive: true, withFileTypes: true }))
+    .filter((e) => e.isFile())
+    .map((e) => relative(dir, join(e.parentPath, e.name)))
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  for (const f of files) {
+    await chmod(join(dir, f), 0o644);
+    await utimes(join(dir, f), FIXED_TIME, FIXED_TIME);
+  }
+  await run("zip", ["-q", "-X", "-D", "-@", archive], {
+    cwd: dir,
+    env: { TZ: "UTC" },
+    stdin: files.join("\n") + "\n",
+  });
 }
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);

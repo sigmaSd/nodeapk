@@ -30,7 +30,7 @@ In the app's package.json:
 ```
 
 ```bash
-npx @sigmasd/nodeapk build [dir] [--install] [--serial <device>] [--out <file.apk>] [--runtime <node-android archive>]
+npx @sigmasd/nodeapk build [dir] [--install] [--serial <device>] [--out <file.apk>] [--runtime <node-android archive>] [--unsigned]
 ```
 
 The APK goes to `<dir>/dist/<id>.apk`. Needs Node 24.11+, a JDK (17+), `zip`, `unzip` and `tar`, and `adb`
@@ -50,6 +50,12 @@ NODEAPK_KEYSTORE_PASSWORD=… npx @sigmasd/nodeapk build --keystore myapp.keysto
 Back up the keystore and its password: losing either means users must uninstall to get updates. In CI, keep
 the keystore (base64) and the password as secrets. `--key-alias` picks a key when the keystore has several;
 `NODEAPK_KEY_PASSWORD` is the key's own password when it differs from the keystore's.
+
+**Reproducible.** The same sources, Node and build tools give the same APK byte for byte on any machine
+(before signing): a store that builds from source, like F-Droid, can check its build against your published
+APK and ship it with your signature. `--unsigned` leaves the APK unsigned for that. Build the shell from the
+same nodeapk sources on both sides (a git checkout compiles it; the npm package ships it prebuilt), and give
+both the same Node (`--runtime`).
 
 The app follows the phone's dark mode (the WebView reports it as `prefers-color-scheme`), as it is when the
 app starts.
