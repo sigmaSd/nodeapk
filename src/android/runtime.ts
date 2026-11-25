@@ -10,6 +10,8 @@ import { cacheDir, download, run } from "../run.ts";
 
 /** The Node version apps get, until the CLI lets them choose. */
 export const NODE_VERSION = "24.22.3";
+/** The node-android release of it: a "-1" is that version built again (24.22.3-1 rebuilds the same on any disk). */
+export const NODE_RELEASE = "v24.22.3-1";
 const RELEASES = "https://github.com/sigmaSd/node-android/releases/download";
 
 /** The node executable for `arch`, from `local` if given, else from the node-android release. */
@@ -17,15 +19,17 @@ export async function ensureNode(arch: "arm64" | "x64", local?: string): Promise
   if (local) return local.endsWith(".tar.xz") ? unpack(local, await localDir(local)) : local;
   const name = `node-v${NODE_VERSION}-android-${arch}`;
   const dir = join(cacheDir(), "runtime");
-  const exe = join(dir, name, "node");
+  // per release: an earlier build of the same Node version in the cache isn't taken for this one
+  const unpacked = `node-${NODE_RELEASE}-android-${arch}`;
+  const exe = join(dir, unpacked, "node");
   if (existsSync(exe)) return exe;
   await mkdir(dir, { recursive: true });
-  const archive = join(dir, `${name}.tar.xz`);
-  const url = `${RELEASES}/v${NODE_VERSION}/${name}.tar.xz`;
+  const archive = join(dir, `${unpacked}.tar.xz`);
+  const url = `${RELEASES}/${NODE_RELEASE}/${name}.tar.xz`;
   await download(`${url}.sha256`, `${archive}.sha256`);
   const expected = (await readFile(`${archive}.sha256`, "utf8")).split(/\s/)[0];
   await download(url, archive, expected);
-  const found = await unpack(archive, join(dir, name));
+  const found = await unpack(archive, join(dir, unpacked));
   await rm(archive);
   await rm(`${archive}.sha256`);
   return found;
