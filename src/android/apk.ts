@@ -159,6 +159,10 @@ export async function buildApk(opts: ApkOptions): Promise<string> {
       "true",
       "--v4-signing-enabled",
       "false",
+      // zipalign did it: aligned again, entries get padding the unsigned APK doesn't have, and F-Droid can't put
+      // this signature on the APK it builds
+      "--alignment-preserved",
+      "true",
       opts.output,
     ]);
     return opts.output;
